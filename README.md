@@ -21,21 +21,21 @@ A complete, production-grade cloud-native reference project demonstrating **zero
 ### A. GitOps: GitHub Repository -> ArgoCD -> ConfigMap -> Reloader
 ```mermaid
 graph TD
-    Git["GitHub Repository (k8s-gitops-config-reloader-demo)"] -->|1. Commit / Push ConfigMap change| Argo[ArgoCD Controller]
-    Argo -->|2. Automated Reconciliation / Sync| K8sCM[Kubernetes ConfigMap / Secret]
+    Git["GitHub Repository (k8s-gitops-config-reloader-demo)"] -->|1. Commit / Push ConfigMap change| Argo["ArgoCD Controller"]
+    Argo -->|2. Automated Reconciliation / Sync| K8sCM["Kubernetes ConfigMap / Secret"]
     
-    subgraph Kubernetes Cluster
-        K8sCM -->|3. Watch change event| Reloader[Stakater Reloader Controller]
+    subgraph "Kubernetes Cluster"
+        K8sCM -->|3. Watch change event| Reloader["Stakater Reloader Controller"]
         
-        Reloader -->|4. Trigger RollingUpdate| DeploySB[Deployment: Spring Boot]
-        Reloader -->|4. Trigger RollingUpdate| DeployGo[Deployment: Go Service]
-        Reloader -->|4. Trigger RollingUpdate| DeployNode[Deployment: Node.js Service]
-        Reloader -->|4. Trigger RollingUpdate| DeployPy[Deployment: Python Service]
+        Reloader -->|4. Trigger RollingUpdate| DeploySB["Deployment: Spring Boot"]
+        Reloader -->|4. Trigger RollingUpdate| DeployGo["Deployment: Go Service"]
+        Reloader -->|4. Trigger RollingUpdate| DeployNode["Deployment: Node.js Service"]
+        Reloader -->|4. Trigger RollingUpdate| DeployPy["Deployment: Python Service"]
         
-        DeploySB --> PodSB[Pod: Spring Boot (Java 21)]
-        DeployGo --> PodGo[Pod: Go Service (1.23)]
-        DeployNode --> PodNode[Pod: Node.js (22)]
-        DeployPy --> PodPy[Pod: Python (3.12)]
+        DeploySB --> PodSB["Pod: Spring Boot (Java 21)"]
+        DeployGo --> PodGo["Pod: Go Service (1.23)"]
+        DeployNode --> PodNode["Pod: Node.js (22)"]
+        DeployPy --> PodPy["Pod: Python (3.12)"]
     end
     
     style Reloader fill:#f9f,stroke:#333,stroke-width:2px
@@ -45,7 +45,7 @@ graph TD
 ### B. Database-Driven: PostgreSQL -> DB-Syncer -> ConfigMap -> Reloader
 ```mermaid
 graph LR
-    Admin[Admin / Backoffice Portal] -->|1. Update table row| DB[(PostgreSQL app_properties)]
+    Admin["Admin / Backoffice Portal"] -->|1. Update table row| DB[("PostgreSQL app_properties")]
     DB -->|2. Poll changes| Syncer["DB-to-ConfigMap Syncer Controller"]
     Syncer -->|3. Patch ConfigMap| K8sCM["Kubernetes ConfigMap"]
     K8sCM -->|4. Watch change event| Reloader["Stakater Reloader"]
