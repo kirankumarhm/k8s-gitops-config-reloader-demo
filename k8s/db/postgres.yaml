@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-sql
+  namespace: gitops-demo
+data:
+  init.sql: |
+    CREATE TABLE IF NOT EXISTS app_properties (
+        id SERIAL PRIMARY KEY,
+        application VARCHAR(64) NOT NULL,
+        profile VARCHAR(64) NOT NULL DEFAULT 'default',
+        prop_key VARCHAR(128) NOT NULL,
+        prop_value TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_app_prop ON app_properties(application, profile, prop_key);
+
+    -- Seed initial configuration
+    INSERT INTO app_properties (application, profile, prop_key, prop_value) VALUES
+    ('springboot-service', 'default', 'APP_MESSAGE', 'Spring Boot config loaded from PostgreSQL DB!'),
+    ('springboot-service', 'default', 'APP_MAX_ORDER_QUANTITY', '1500'),
+    ('springboot-service', 'default', 'APP_ENVIRONMENT', 'production-database'),
+    ('springboot-service', 'default', 'APP_FEATURE_FLAG_ACTIVE', 'true'),
+    ('go-service', 'default', 'config.json', '{"environment":"production-database","message":"Go config from PostgreSQL DB!","maxItems":500,"featureFlagActive":true}'),
+    ('node-service', 'default', 'config.json', '{"environment":"production-database","message":"Node config from PostgreSQL DB!","rateLimit":600,"featureFlagActive":true}'),
+    ('python-service', 'default', 'config.json', '{"environment":"production-database","message":"Python config from PostgreSQL DB!","timeoutSeconds":45,"featureFlagActive":true}')
+    ON CONFLICT (application, profile, prop_key) DO NOTHING;
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: gitops-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - name: POSTGRES_DB
+              value: configdb
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              value: postgres
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: init-script
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-d", "configdb"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: init-script
+          configMap:
+            name: postgres-init-sql
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: gitops-demo
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432

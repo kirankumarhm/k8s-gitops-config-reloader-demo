@@ -16,12 +16,13 @@ A complete, production-grade cloud-native reference project demonstrating **zero
 
 ---
 
-## 2. Architecture Diagram
+## 2. Architecture Diagrams
 
+### A. GitOps: GitHub Repository -> ArgoCD -> ConfigMap -> Reloader
 ```mermaid
 graph TD
-    Git[Git Repository] -->|1. Commit / Push ConfigMap change| Argo[ArgoCD Controller]
-    Argo -->|2. Automated Reconciliation| K8sCM[Kubernetes ConfigMap / Secret]
+    Git["GitHub Repository (k8s-gitops-config-reloader-demo)"] -->|1. Commit / Push ConfigMap change| Argo[ArgoCD Controller]
+    Argo -->|2. Automated Reconciliation / Sync| K8sCM[Kubernetes ConfigMap / Secret]
     
     subgraph Kubernetes Cluster
         K8sCM -->|3. Watch change event| Reloader[Stakater Reloader Controller]
@@ -41,6 +42,16 @@ graph TD
     style K8sCM fill:#bbf,stroke:#333,stroke-width:2px
 ```
 
+### B. Database-Driven: PostgreSQL -> DB-Syncer -> ConfigMap -> Reloader
+```mermaid
+graph LR
+    Admin[Admin / Backoffice Portal] -->|1. Update table row| DB[(PostgreSQL app_properties)]
+    DB -->|2. Poll changes| Syncer["DB-to-ConfigMap Syncer Controller"]
+    Syncer -->|3. Patch ConfigMap| K8sCM["Kubernetes ConfigMap"]
+    K8sCM -->|4. Watch change event| Reloader["Stakater Reloader"]
+    Reloader -->|5. RollingUpdate| Pods["Polyglot Microservices"]
+```
+
 ---
 
 ## 3. Project Structure
@@ -51,7 +62,8 @@ k8s-gitops-config-reloader-demo/
 │   ├── springboot-service/         # Java 21 (0 lines of Config Server / RabbitMQ code)
 │   ├── go-service/                 # Go 1.23 (0 lines of AMQP or custom client code)
 │   ├── node-service/               # Node.js 22 Express (Pure JSON / env reading)
-│   └── python-service/             # Python 3.12 FastAPI (Standard env reading)
+│   ├── python-service/             # Python 3.12 FastAPI (Standard env reading)
+│   └── db-syncer/                  # Python DB-to-ConfigMap Reconciler Controller
 ├── k8s/
 │   ├── base/
 │   │   ├── namespace.yaml          # gitops-demo namespace
@@ -62,6 +74,9 @@ k8s-gitops-config-reloader-demo/
 │   │   ├── node-service.yaml
 │   │   ├── python-service.yaml
 │   │   └── kustomization.yaml
+│   ├── db/
+│   │   ├── postgres.yaml           # PostgreSQL deployment & initial SQL seed
+│   │   └── db-syncer.yaml          # RBAC & Deployment for DB-to-ConfigMap Syncer
 │   └── overlays/
 │       └── minikube/
 │           └── kustomization.yaml
@@ -71,33 +86,71 @@ k8s-gitops-config-reloader-demo/
 └── scripts/
     ├── setup-minikube.sh           # Installs Stakater Reloader & ArgoCD into Minikube
     ├── deploy.sh                   # Builds images, loads into Minikube, deploys workloads
-    ├── test-gitops-reload.sh       # Automated verification test showing live reload
+    ├── test-gitops-reload.sh       # Automated polyglot verification test showing live reload
+    ├── test-github-sync.sh         # Verifies GitHub -> ArgoCD -> ConfigMap sync
+    ├── setup-db-sync.sh            # Deploys PostgreSQL & DB-to-ConfigMap Syncer
+    ├── test-db-sync.sh             # Updates SQL row & verifies live pod rollout
     └── teardown.sh                 # Cleans up workloads & infrastructure
 ```
 
 ---
 
-## 4. Quickstart Guide (Local Minikube)
+## 4. Hands-on Testing Guide
 
-### Step 1: Install Reloader & ArgoCD into Minikube
+### Scenario 1: Basic In-Cluster Polyglot Reload Test
 ```bash
+# 1. Setup Minikube with Reloader & ArgoCD:
 ./scripts/setup-minikube.sh
-```
 
-### Step 2: Build & Deploy Polyglot Services
-```bash
+# 2. Deploy all 4 polyglot microservices:
 ./scripts/deploy.sh
-```
 
-### Step 3: Run the Automated Live Reload Acceptance Test
-```bash
+# 3. Run acceptance test:
 ./scripts/test-gitops-reload.sh
 ```
-This script:
-1. Probes initial config values across all 4 services.
-2. Updates the ConfigMaps in the cluster (simulating a Git commit / GitOps sync).
-3. Verifies that **Stakater Reloader** triggers a rolling update.
-4. Verifies that the new configuration is actively served by all 4 polyglot services with **zero downtime**.
+
+---
+
+### Scenario 2: Test ConfigMap + GitHub Repository Sync (ArgoCD GitOps)
+In this scenario, GitHub is the single source of truth.
+
+```bash
+# 1. Verify ArgoCD application is connected to GitHub:
+kubectl -n argocd get application gitops-polyglot-config-demo
+
+# 2. Run the GitHub sync test script:
+./scripts/test-github-sync.sh
+
+# 3. Manual Live Test:
+# Edit k8s/base/configmaps.yaml, commit & push to GitHub:
+git commit -am "chore: update config in GitHub" && git push origin main
+
+# ArgoCD automatically syncs within 3 minutes (or force sync via UI/CLI):
+kubectl -n argocd patch application gitops-polyglot-config-demo --type merge -p '{"operation":{"sync":{"prune":true}}}'
+
+# Observe Stakater Reloader automatically rolling out new pods!
+```
+
+---
+
+### Scenario 3: Test ConfigMap + Database Table Sync (PostgreSQL)
+In this scenario, a database table (`app_properties`) is the source of truth (e.g., from an Admin portal).
+
+```bash
+# 1. Deploy PostgreSQL and DB-to-ConfigMap Syncer:
+./scripts/setup-db-sync.sh
+
+# 2. Run the automated database sync acceptance test:
+./scripts/test-db-sync.sh
+
+# 3. Manual SQL Test:
+kubectl -n gitops-demo exec -it deploy/postgres -- psql -U postgres -d configdb
+# Inside psql:
+UPDATE app_properties SET prop_value = 'Live message from DBA!' WHERE prop_key = 'APP_MESSAGE';
+\q
+
+# Watch DB-Syncer detect the row update, patch the ConfigMap, and Reloader restart Spring Boot!
+```
 
 ---
 

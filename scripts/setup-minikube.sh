@@ -19,7 +19,7 @@ kubectl -n default rollout status deployment/reloader-reloader --timeout=180s ||
 
 echo "==> 3. Installing ArgoCD (GitOps Controller)"
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 echo "    Waiting for ArgoCD Server to roll out..."
 kubectl -n argocd rollout status deployment/argocd-server --timeout=300s || true
 
