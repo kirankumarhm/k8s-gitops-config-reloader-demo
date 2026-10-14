@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: go-service
+  namespace: gitops-demo
+  annotations:
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: go-service
+  template:
+    metadata:
+      labels:
+        app: go-service
+    spec:
+      containers:
+        - name: go-service
+          image: gitops-demo-go-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8085
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/config
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8085
+            initialDelaySeconds: 2
+            periodSeconds: 3
+          resources:
+            requests:
+              cpu: "20m"
+              memory: "32Mi"
+            limits:
+              cpu: "100m"
+              memory: "64Mi"
+      volumes:
+        - name: config-volume
+          configMap:
+            name: go-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: go-service
+  namespace: gitops-demo
+spec:
+  selector:
+    app: go-service
+  ports:
+    - port: 8085
+      targetPort: 8085

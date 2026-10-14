@@ -1,0 +1,39 @@
+# OS files
+.DS_Store
+*/.DS_Store
+**/.DS_Store
+Thumbs.db
+
+# Java & Maven
+target/
+**/target/
+*.class
+*.jar
+*.war
+*.ear
+
+# Node.js
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+
+# Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+env/
+
+# Go
+bin/
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo

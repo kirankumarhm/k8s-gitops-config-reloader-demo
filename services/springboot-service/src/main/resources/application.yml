@@ -1,0 +1,17 @@
+server:
+  port: 8081
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+app:
+  environment: ${APP_ENVIRONMENT:local}
+  message: ${APP_MESSAGE:Default local Spring Boot message}
+  max-order-quantity: ${APP_MAX_ORDER_QUANTITY:500}
+  feature-flag-active: ${APP_FEATURE_FLAG_ACTIVE:false}

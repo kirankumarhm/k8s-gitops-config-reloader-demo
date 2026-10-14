@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node-service
+  namespace: gitops-demo
+  annotations:
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: node-service
+  template:
+    metadata:
+      labels:
+        app: node-service
+    spec:
+      containers:
+        - name: node-service
+          image: gitops-demo-node-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8084
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/config
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8084
+            initialDelaySeconds: 5
+            periodSeconds: 3
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+      volumes:
+        - name: config-volume
+          configMap:
+            name: node-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-service
+  namespace: gitops-demo
+spec:
+  selector:
+    app: node-service
+  ports:
+    - port: 8084
+      targetPort: 8084

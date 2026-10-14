@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: springboot-config
+  namespace: gitops-demo
+data:
+  APP_ENVIRONMENT: "production-gitops"
+  APP_MESSAGE: "Spring Boot live from GitOps ConfigMap!"
+  APP_MAX_ORDER_QUANTITY: "850"
+  APP_FEATURE_FLAG_ACTIVE: "true"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: go-config
+  namespace: gitops-demo
+data:
+  config.json: |
+    {
+      "environment": "production-gitops",
+      "message": "Go Service live from GitOps ConfigMap!",
+      "maxItems": 120,
+      "featureFlagActive": true
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: node-config
+  namespace: gitops-demo
+data:
+  config.json: |
+    {
+      "environment": "production-gitops",
+      "message": "Node.js Service live from GitOps ConfigMap!",
+      "rateLimit": 350,
+      "featureFlagActive": true
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: python-config
+  namespace: gitops-demo
+data:
+  config.json: |
+    {
+      "environment": "production-gitops",
+      "message": "Python Service live from GitOps ConfigMap!",
+      "timeoutSeconds": 60,
+      "featureFlagActive": true
+    }

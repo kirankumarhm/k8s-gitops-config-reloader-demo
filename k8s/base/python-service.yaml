@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: python-service
+  namespace: gitops-demo
+  annotations:
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: python-service
+  template:
+    metadata:
+      labels:
+        app: python-service
+    spec:
+      containers:
+        - name: python-service
+          image: gitops-demo-python-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8086
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/config
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8086
+            initialDelaySeconds: 5
+            periodSeconds: 3
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+      volumes:
+        - name: config-volume
+          configMap:
+            name: python-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: python-service
+  namespace: gitops-demo
+spec:
+  selector:
+    app: python-service
+  ports:
+    - port: 8086
+      targetPort: 8086
