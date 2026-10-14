@@ -5,7 +5,7 @@ metadata:
   namespace: gitops-demo
 data:
   APP_ENVIRONMENT: "production-gitops"
-  APP_MESSAGE: "Spring Boot live from GitOps ConfigMap!"
+  APP_MESSAGE: "Spring Boot live from GitOps ConfigMap! Hello from my first GitHub GitOps commit!"
   APP_MAX_ORDER_QUANTITY: "850"
   APP_FEATURE_FLAG_ACTIVE: "true"
 ---
