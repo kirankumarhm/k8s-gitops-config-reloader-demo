@@ -54,7 +54,36 @@ graph LR
 
 ---
 
-## 3. Project Structure
+## 3. Core Components Explained
+
+| Component | Type | Source / Location | Purpose |
+| :--- | :--- | :--- | :--- |
+| **Stakater Reloader (`reloader-reloader` pod)** | Open-Source Controller | [stakater/Reloader](https://github.com/stakater/Reloader) (Go) | Watches K8s API for ConfigMap/Secret changes and triggers zero-downtime rolling updates on annotated Deployments (`reloader.stakater.com/auto: "true"`). |
+| **DB Syncer (`services/db-syncer`)** | Custom Controller (in this repo) | [services/db-syncer/](services/db-syncer) (Python) | Bridges PostgreSQL (`app_properties` table) ➔ Kubernetes ConfigMaps. Queries SQL changes and patches ConfigMaps in Kubernetes. |
+| **ArgoCD** | Open-Source GitOps Controller | [argoproj/argo-cd](https://github.com/argoproj/argo-cd) | Bridges GitHub ➔ Kubernetes. Continuously reconciles declarative manifests from this GitHub repository into the cluster. |
+| **PostgreSQL Database** | Database | [k8s/db/postgres.yaml](k8s/db/postgres.yaml) | Stores runtime configuration rows (`app_properties` table) for database-driven scenarios. |
+| **Polyglot Microservices** | Applications | [services/](services/) | Spring Boot (Java 21), Go 1.23, Node.js 22, Python 3.12 FastAPI consuming ConfigMaps via standard environment variables and volume mounts. |
+
+### How `services/db-syncer` and `reloader-reloader` Cooperate:
+```
+1. SQL Database (PostgreSQL)
+      │
+      ▼
+2. services/db-syncer        <-- Custom Python controller (in this repo)
+      │  (Patches K8s ConfigMap)
+      ▼
+3. Kubernetes ConfigMap
+      │  (Detects ConfigMap update event)
+      ▼
+4. reloader-reloader         <-- Stakater open-source controller
+      │  (Triggers RollingUpdate)
+      ▼
+5. Polyglot Microservices    (Spring Boot, Go, Node, Python)
+```
+
+---
+
+## 4. Project Structure
 
 ```
 k8s-gitops-config-reloader-demo/
@@ -63,7 +92,10 @@ k8s-gitops-config-reloader-demo/
 │   ├── go-service/                 # Go 1.23 (0 lines of AMQP or custom client code)
 │   ├── node-service/               # Node.js 22 Express (Pure JSON / env reading)
 │   ├── python-service/             # Python 3.12 FastAPI (Standard env reading)
-│   └── db-syncer/                  # Python DB-to-ConfigMap Reconciler Controller
+│   └── db-syncer/                  # Custom Python DB-to-ConfigMap Reconciler Controller
+│       ├── syncer.py               # Connects to PostgreSQL and patches K8s ConfigMaps
+│       ├── Dockerfile              # Container image gitops-demo-db-syncer:latest
+│       └── requirements.txt        # psycopg2-binary, kubernetes client library
 ├── k8s/
 │   ├── base/
 │   │   ├── namespace.yaml          # gitops-demo namespace
@@ -114,18 +146,31 @@ k8s-gitops-config-reloader-demo/
 ### Scenario 2: Test ConfigMap + GitHub Repository Sync (ArgoCD GitOps)
 In this scenario, GitHub is the single source of truth.
 
+#### Access the ArgoCD Web Dashboard:
+1. **Port-forward the UI** (if not already running):
+   ```bash
+   kubectl -n argocd port-forward svc/argocd-server 8080:443
+   ```
+2. **Open in browser:** [https://localhost:8080](https://localhost:8080)
+   * **Username:** `admin`
+   * **Password:** Retrieve dynamically with:
+     ```bash
+     kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d && echo
+     ```
+
+#### Run the Acceptance Test:
 ```bash
 # 1. Verify ArgoCD application is connected to GitHub:
 kubectl -n argocd get application gitops-polyglot-config-demo
 
-# 2. Run the GitHub sync test script:
+# 2. Run the automated GitHub sync test script:
 ./scripts/test-github-sync.sh
 
-# 3. Manual Live Test:
-# Edit k8s/base/configmaps.yaml, commit & push to GitHub:
+# 3. Manual Live Test in GitHub:
+# Edit k8s/base/configmaps.yaml on GitHub or locally, commit & push:
 git commit -am "chore: update config in GitHub" && git push origin main
 
-# ArgoCD automatically syncs within 3 minutes (or force sync via UI/CLI):
+# ArgoCD automatically syncs within 3 minutes (or click 'Sync' / 'Refresh' in UI or run):
 kubectl -n argocd patch application gitops-polyglot-config-demo --type merge -p '{"operation":{"sync":{"prune":true}}}'
 
 # Observe Stakater Reloader automatically rolling out new pods!
