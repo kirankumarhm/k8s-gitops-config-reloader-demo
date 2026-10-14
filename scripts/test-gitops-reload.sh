@@ -24,7 +24,7 @@ kubectl -n $NS get pods -o custom-columns=NAME:.metadata.name,STATUS:.status.pha
 # Helper function to query a service in-cluster
 query_svc() {
   local svc="$1" port="$2" path="$3"
-  kubectl -n $NS exec deploy/"$svc" -- wget -qO- --timeout=5 "http://localhost:$port$path" 2>/dev/null
+  kubectl -n $NS exec deploy/"$svc" -- wget -qO- --timeout=5 "http://127.0.0.1:$port$path" 2>/dev/null
 }
 
 echo
